@@ -5,8 +5,8 @@ import java.time.temporal.ChronoUnit;
 
 public class RecurringEvent extends MainEvent {
 
-    private String recurrenceType; // DAILY, WEEKLY, MONTHLY
-    private int occurrences;       // how many times it repeats
+    private String recurrenceType;
+    private int occurrences;       
 
     public RecurringEvent(int eventId, String title, String description,
                           LocalDateTime startDateTime, LocalDateTime endDateTime,
@@ -40,3 +40,4 @@ public class RecurringEvent extends MainEvent {
                 '}';
     }
 }
+
