@@ -1,45 +1,78 @@
 package com.mycompany.calendarapp;
 
-import java.io.*;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.*;  // For file input/output
+import java.time.LocalDate;  // For date handling
+import java.time.LocalDateTime;  // For date and time handling
+import java.time.format.DateTimeFormatter;  // For parsing/formatting dates
+import java.time.temporal.ChronoUnit;  // For date calculations
+import java.util.HashMap;  // For hash maps
+import java.util.Map;  // For map interface
 
 /**
- * CSV Handler that complies with the assignment specification:
- * - event.csv: eventId, title, description, startDateTime, endDateTime
- * - recurrent.csv: eventId, recurrentInterval, recurrentTimes, recurrentEndDate
+ * CSVHandlerCompliant Class
+ * 
+ * This CSV handler complies with the assignment specification by using
+ * separate CSV files for different types of data:
+ * - event.csv: Core event data (eventId, title, description, startDateTime, endDateTime)
+ * - recurrent.csv: Recurrence data (eventId, recurrentInterval, recurrentTimes, recurrentEndDate)
+ * - additional.csv: Extra fields (eventId, location, category, priority)
+ * 
+ * Purpose:
+ * - Separate concerns by splitting data into multiple CSV files
+ * - Match the exact CSV format specified in the assignment
+ * - Coordinate with AdditionalFieldsHandler for complete data persistence
+ * 
+ * How It Works:
+ * 1. When saving: Splits each event's data across multiple CSV files
+ * 2. When loading: Reads all CSV files and reconstructs complete events
+ * 3. Uses HashMap to efficiently link related data across files
+ * 
+ * This is the ACTIVE CSV handler used by the application.
  */
 public class CSVHandlerCompliant {
 
-    private static final String EVENT_FILE = "event.csv";
-    private static final String RECURRENT_FILE = "recurrent.csv";
+    // Constants for file names
+    private static final String EVENT_FILE = "event.csv";  // Core event data
+    private static final String RECURRENT_FILE = "recurrent.csv";  // Recurrence data
+    // ISO format: "2025-12-31T14:30:00" (includes T separator)
     private static final DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     /**
-     * Save all events to event.csv and recurrent.csv
+     * Save all events to CSV files
+     * 
+     * This is the main public method for saving. It coordinates the saving
+     * process across multiple CSV files.
+     * 
+     * @param manager The EventManager containing all events to save
      */
     public static void saveEvents(EventManager manager) {
-        saveEventCSV(manager);
-        saveRecurrentCSV(manager);
-        AdditionalFieldsHandler.saveAdditionalFields(manager);  // Save additional fields
+        saveEventCSV(manager);  // Save core event data to event.csv
+        saveRecurrentCSV(manager);  // Save recurrence data to recurrent.csv
+        AdditionalFieldsHandler.saveAdditionalFields(manager);  // Save additional fields to additional.csv
     }
 
     /**
-     * Save basic events to event.csv
+     * Save core event data to event.csv
+     * 
+     * Saves ALL events (both normal and recurring) with their first occurrence data.
+     * For recurring events, only the first occurrence is saved here; the recurrence
+     * pattern is saved in recurrent.csv.
+     * 
      * Format: eventId, title, description, startDateTime, endDateTime
+     * 
+     * @param manager The EventManager containing events to save
      */
     private static void saveEventCSV(EventManager manager) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(EVENT_FILE))) {
+            // Write header row
             pw.println("eventId,title,description,startDateTime,endDateTime");
+            
+            // Write each event
             for (MainEvent e : manager.getAllEvents()) {
-                // Save all events (including recurring) with their first occurrence
+                // Save all events (including recurring) with their first occurrence times
                 pw.println(e.getEventId() + "," + 
-                          escapeCsvValue(e.getTitle()) + "," + 
-                          escapeCsvValue(e.getDescription()) + "," +
+                          escapeCsvValue(e.getTitle()) + "," +  // Escape special chars in title
+                          escapeCsvValue(e.getDescription()) + "," +  // Escape special chars in description
                           e.getStartDateTime().format(formatter) + "," + 
                           e.getEndDateTime().format(formatter));
             }
@@ -49,19 +82,31 @@ public class CSVHandlerCompliant {
     }
 
     /**
-     * Save recurring events to recurrent.csv
+     * Save recurring event data to recurrent.csv
+     * 
+     * Only saves data for events that are instances of RecurringEvent.
+     * Normal events are not included in this file.
+     * 
      * Format: eventId, recurrentInterval, recurrentTimes, recurrentEndDate
+     * 
+     * @param manager The EventManager containing events
      */
     private static void saveRecurrentCSV(EventManager manager) {
         try (PrintWriter pw = new PrintWriter(new FileWriter(RECURRENT_FILE))) {
+            // Write header row
             pw.println("eventId,recurrentInterval,recurrentTimes,recurrentEndDate");
+            
+            // Loop through all events and filter for recurring ones
             for (MainEvent e : manager.getAllEvents()) {
-                if (e instanceof RecurringEvent) {
-                    RecurringEvent re = (RecurringEvent) e;
-                    String interval = convertRecurrenceTypeToInterval(re.getRecurrenceType());
-                    int times = re.getOccurrences();
-                    String endDate = "0"; // Using times instead of end date
+                if (e instanceof RecurringEvent) {  // Only process recurring events
+                    RecurringEvent re = (RecurringEvent) e;  // Cast to RecurringEvent
                     
+                    // Convert recurrence type (DAILY/WEEKLY/MONTHLY) to interval format (1d/1w/1m)
+                    String interval = convertRecurrenceTypeToInterval(re.getRecurrenceType());
+                    int times = re.getOccurrences();  // How many times it repeats
+                    String endDate = "0";  // Using times instead of end date (so this is "0")
+                    
+                    // Write CSV line
                     pw.println(e.getEventId() + "," + interval + "," + times + "," + endDate);
                 }
             }
@@ -71,7 +116,18 @@ public class CSVHandlerCompliant {
     }
 
     /**
-     * Load all events from event.csv and recurrent.csv
+     * Load all events from CSV files
+     * 
+     * This is the main public method for loading. It coordinates loading
+     * data from multiple CSV files and reconstructs complete events.
+     * 
+     * Process:
+     * 1. Load basic events from event.csv
+     * 2. Load recurrence data from recurrent.csv
+     * 3. Merge the data to create complete RecurringEvent objects
+     * 4. Load additional fields from additional.csv
+     * 
+     * @param manager The EventManager to add loaded events to
      */
     public static void loadEvents(EventManager manager) {
         // First load basic events from event.csv
