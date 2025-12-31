@@ -30,11 +30,6 @@ CalendarApp/libs/
 CalendarApp/backups/
 CalendarApp/src/main/java/backups/
 
-# Local-only docs (not pushed)
-CLEANUP_SUMMARY.md
-FINAL_IMPLEMENTATION_REPORT.md
-NEW_FEATURES_GUIDE.md
-QUICK_REFERENCE.md
 
 # Stray data copies in source tree
 CalendarApp/src/main/java/*.csv
